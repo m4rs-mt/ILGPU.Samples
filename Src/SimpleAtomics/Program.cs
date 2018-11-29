@@ -32,25 +32,25 @@ namespace SimpleAtomics
             int constant)              // A sample uniform constant
         {
             // dataView[0] += constant
-            Atomic.Add(dataView.GetVariableView(0), constant);
+            Atomic.Add(ref dataView.GetVariableView(0).Value, constant);
 
             // dataView[1] -= constant
-            Atomic.Sub(dataView.GetVariableView(1), constant);
+            Atomic.Add(ref dataView.GetVariableView(1).Value, -constant);
 
             // dataView[2] = Max(dataView[2], constant)
-            Atomic.Max(dataView.GetVariableView(2), constant);
+            Atomic.Max(ref dataView.GetVariableView(2).Value, constant);
 
             // dataView[3] = Min(dataView[3], constant)
-            Atomic.Min(dataView.GetVariableView(3), constant);
+            Atomic.Min(ref dataView.GetVariableView(3).Value, constant);
 
             // dataView[4] = Min(dataView[4], constant)
-            Atomic.And(dataView.GetVariableView(4), constant);
+            Atomic.And(ref dataView.GetVariableView(4).Value, constant);
 
             // dataView[5] = Min(dataView[5], constant)
-            Atomic.Or(dataView.GetVariableView(5), constant);
+            Atomic.Or(ref dataView.GetVariableView(5).Value, constant);
 
             // dataView[6] = Min(dataView[6], constant)
-            Atomic.Xor(dataView.GetVariableView(6), constant);
+            Atomic.Xor(ref dataView.GetVariableView(6).Value, constant);
         }
 
         /// <summary>
@@ -68,7 +68,7 @@ namespace SimpleAtomics
                     using (var accelerator = Accelerator.Create(context, acceleratorId))
                     {
                         Console.WriteLine($"Performing operations on {accelerator}");
-                        var kernel = accelerator.LoadAutoGroupedStreamKernel<
+                        var kernel = accelerator.LoadAutoGroupedKernel<
                             Index, ArrayView<int>, int>(AtomicOperationKernel);
                         using (var buffer = accelerator.Allocate<int>(7))
                         {
@@ -76,13 +76,13 @@ namespace SimpleAtomics
                             buffer.MemSetToZero();
 
                             // Launch buffer.Length many threads and pass a view to buffer
-                            kernel(1024, buffer.View, 4);
+                            kernel(accelerator.DefaultStream, 1024, buffer.View, 4);
 
                             // Wait for the kernel to finish...
                             accelerator.Synchronize();
 
                             // Resolve data
-                            var data = buffer.GetAsArray();
+                            var data = buffer.GetAsArray(accelerator.DefaultStream);
                             for (int i = 0, e = data.Length; i < e; ++i)
                                 Console.WriteLine($"Data[{i}] = {data[i]}");
                         }

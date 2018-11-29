@@ -10,6 +10,7 @@
 // -----------------------------------------------------------------------------
 
 using ILGPU;
+using ILGPU.IR;
 using ILGPU.Runtime;
 using System;
 using System.Diagnostics;
@@ -97,17 +98,17 @@ namespace SimpleConstants
             Action<Index, ArrayView<int>> method,
             int? expectedValue)
         {
-            var kernel = accelerator.LoadAutoGroupedStreamKernel(method);
+            var kernel = accelerator.LoadAutoGroupedKernel(method);
             using (var buffer = accelerator.Allocate<int>(1024))
             {
-                kernel(buffer.Length, buffer.View);
+                kernel(accelerator.DefaultStream, buffer.Length, buffer.View);
 
                 // Wait for the kernel to finish...
                 accelerator.Synchronize();
 
                 if (expectedValue.HasValue)
                 {
-                    var data = buffer.GetAsArray();
+                    var data = buffer.GetAsArray(accelerator.DefaultStream);
                     for (int i = 0, e = data.Length; i < e; ++i)
                         Debug.Assert(data[i] == expectedValue);
                 }
@@ -119,14 +120,14 @@ namespace SimpleConstants
         /// </summary>
         static void Main(string[] args)
         {
-            // Create main context
-            using (var context = new Context())
+            // For each available accelerator...
+            foreach (var acceleratorId in Accelerator.Accelerators)
             {
-                // For each available accelerator...
-                foreach (var acceleratorId in Accelerator.Accelerators)
+                // Create main context
+                using (var context = new Context(IRContextFlags.None))
                 {
                     // Create default accelerator for the given accelerator id
-                    using (var accelerator = Accelerator.Create(context, acceleratorId, CompileUnitFlags.None))
+                    using (var accelerator = Accelerator.Create(context, acceleratorId))
                     {
                         Console.WriteLine($"Performing operations on {accelerator}");
 
@@ -174,8 +175,12 @@ namespace SimpleConstants
                             Console.WriteLine("Rejected write to static field");
                         }
                     }
+                }
 
-                    using (var accelerator = Accelerator.Create(context, acceleratorId, CompileUnitFlags.InlineMutableStaticFieldValues))
+                // Create main context
+                using (var context = new Context(IRContextFlags.InlineMutableStaticFieldValues))
+                {
+                    using (var accelerator = Accelerator.Create(context, acceleratorId))
                     {
                         // Launch StaticNonReadOnlyFieldAccessKernel while inlining static field values:
                         LaunchKernel(
@@ -185,8 +190,11 @@ namespace SimpleConstants
                         // Note that a change of the field WriteEnabledValue will not change the result
                         // of a previously compiled kernel that accessed the field WriteEnabledValue.
                     }
+                }
 
-                    using (var accelerator = Accelerator.Create(context, acceleratorId, CompileUnitFlags.IgnoreStaticFieldStores))
+                using (var context = new Context(IRContextFlags.IgnoreStaticFieldStores))
+                {
+                    using (var accelerator = Accelerator.Create(context, acceleratorId))
                     {
                         // Launch StaticFieldWriteAccessKernel while ignoring static stores:
                         LaunchKernel(

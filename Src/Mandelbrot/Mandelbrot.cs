@@ -60,7 +60,7 @@ namespace Mandelbrot
 
         private static Context context;
         private static Accelerator accelerator;
-        private static System.Action<Index, int, int, int, ArrayView<int>> mandelbrot_kernel;
+        private static System.Action<AcceleratorStream, Index, int, int, int, ArrayView<int>> mandelbrot_kernel;
 
         /// <summary>
         /// Compile the mandelbrot kernel in ILGPU-CPU or ILGPU-CUDA mode.
@@ -74,7 +74,7 @@ namespace Mandelbrot
             else
                 accelerator = new CPUAccelerator(context);
 
-            mandelbrot_kernel = accelerator.LoadAutoGroupedStreamKernel<
+            mandelbrot_kernel = accelerator.LoadAutoGroupedKernel<
                 Index, int, int, int, ArrayView<int>>(MandelbrotKernel);
         }
 
@@ -102,9 +102,9 @@ namespace Mandelbrot
             var dev_out = accelerator.Allocate<int>(num_values);
 
             // Launch kernel
-            mandelbrot_kernel(num_values, width, height, max_iterations, dev_out.View);
+            mandelbrot_kernel(accelerator.DefaultStream, num_values, width, height, max_iterations, dev_out.View);
             accelerator.Synchronize();
-            dev_out.CopyTo(buffer, 0, 0, num_values);
+            dev_out.CopyTo(accelerator.DefaultStream, buffer, 0, 0, num_values);
 
             dev_out.Dispose();
             return;

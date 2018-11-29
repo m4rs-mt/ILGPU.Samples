@@ -37,8 +37,8 @@ namespace SimpleMath
             ArrayView<double> doubleView2)  // A view of doubles to store double results from .Net Math
         {
             // Note the different returns type of GPUMath.Sqrt and Math.Sqrt.
-            singleView[index] = GPUMath.Sqrt(index);
-            doubleView[index] = GPUMath.Sqrt((double)index);
+            singleView[index] = XMath.Sqrt(index);
+            doubleView[index] = XMath.Sqrt((double)(int)index);
             doubleView2[index] = Math.Sqrt(index);
         }
 
@@ -57,7 +57,7 @@ namespace SimpleMath
                     using (var accelerator = Accelerator.Create(context, acceleratorId))
                     {
                         Console.WriteLine($"Performing operations on {accelerator}");
-                        var kernel = accelerator.LoadAutoGroupedStreamKernel<
+                        var kernel = accelerator.LoadAutoGroupedKernel<
                             Index, ArrayView<float>, ArrayView<double>, ArrayView<double>>(MathKernel);
 
                         var buffer = accelerator.Allocate<float>(128);
@@ -65,15 +65,15 @@ namespace SimpleMath
                         var buffer3 = accelerator.Allocate<double>(128);
 
                         // Launch buffer.Length many threads
-                        kernel(buffer.Length, buffer.View, buffer2.View, buffer3.View);
+                        kernel(accelerator.DefaultStream, buffer.Length, buffer.View, buffer2.View, buffer3.View);
 
                         // Wait for the kernel to finish...
                         accelerator.Synchronize();
 
                         // Resolve and verify data
-                        var data = buffer.GetAsArray();
-                        var data2 = buffer2.GetAsArray();
-                        var data3 = buffer3.GetAsArray();
+                        var data = buffer.GetAsArray(accelerator.DefaultStream);
+                        var data2 = buffer2.GetAsArray(accelerator.DefaultStream);
+                        var data3 = buffer3.GetAsArray(accelerator.DefaultStream);
                         for (int i = 0, e = data.Length; i < e; ++i)
                             Console.WriteLine($"Math results: {data[i]} (float) {data2[i]} (double [GPUMath]) {data3[i]} (double [.Net Math])");
 

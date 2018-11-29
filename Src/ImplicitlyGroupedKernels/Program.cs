@@ -44,18 +44,18 @@ namespace ImplicitlyGroupedKernels
 
         static void LaunchKernel(
             Accelerator accelerator,
-            Action<Index, ArrayView<int>, int> launcher)
+            Action<AcceleratorStream, Index, ArrayView<int>, int> launcher)
         {
             using (var buffer = accelerator.Allocate<int>(1024))
             {
                 // Launch buffer.Length many threads and pass a view to buffer
-                launcher(buffer.Length, buffer.View, 42);
+                launcher(accelerator.DefaultStream, buffer.Length, buffer.View, 42);
 
                 // Wait for the kernel to finish...
                 accelerator.Synchronize();
 
                 // Resolve and verify data
-                var data = buffer.GetAsArray();
+                var data = buffer.GetAsArray(accelerator.DefaultStream);
                 for (int i = 0, e = data.Length; i < e; ++i)
                 {
                     if (data[i] != 42 + i)
@@ -89,7 +89,7 @@ namespace ImplicitlyGroupedKernels
                         // that implicitly uses the default accelerator stream.
                         // In order to create a launcher that receives a custom accelerator stream
                         // use: accelerator.LoadAutoGroupedKernel<Index, ArrayView<int>, int>(...)
-                        var myAutoGroupedKernel = accelerator.LoadAutoGroupedStreamKernel<
+                        var myAutoGroupedKernel = accelerator.LoadAutoGroupedKernel<
                             Index, ArrayView<int>, int>(MyKernel);
 
                         LaunchKernel(accelerator, myAutoGroupedKernel);
@@ -103,7 +103,7 @@ namespace ImplicitlyGroupedKernels
                         // that implicitly uses the default accelerator stream.
                         // In order to create a launcher that receives a custom accelerator stream
                         // use: accelerator.LoadImplicitlyGroupedKernel<Index, ArrayView<int>, int>(...)
-                        var myImplicitlyGroupedKernel = accelerator.LoadImplicitlyGroupedStreamKernel<
+                        var myImplicitlyGroupedKernel = accelerator.LoadImplicitlyGroupedKernel<
                             Index, ArrayView<int>, int>(MyKernel, accelerator.WarpSize);
 
                         LaunchKernel(accelerator, myImplicitlyGroupedKernel);

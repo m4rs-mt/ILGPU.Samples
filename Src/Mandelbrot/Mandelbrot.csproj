@@ -41,10 +41,7 @@
     <StartupObject />
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="ILGPU" Version="0.3.0" />
-    <PackageReference Include="System.Collections.Immutable" Version="1.4.0" />
-    <PackageReference Include="System.Reflection.Metadata" Version="1.5.0" />
-    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="4.4.0" />
+    <PackageReference Include="ILGPU" Version="0.4.0-beta" />
   </ItemGroup>
   <ItemGroup>
     <Reference Include="System" />

@@ -53,6 +53,7 @@ namespace SimpleAlloc
             {
                 // Copy to accelerator
                 buffer.CopyFrom(
+                    accelerator.DefaultStream,
                     data,         // data source
                     0,            // source index in the scope of the data source
                     32,           // target index in the scope of the buffer
@@ -60,6 +61,7 @@ namespace SimpleAlloc
 
                 // Copy from accelerator
                 buffer.CopyTo(
+                    accelerator.DefaultStream,
                     targetData,   // data target
                     32,           // source index in the scope of the buffer
                     0,            // target index in the scope of the data target
@@ -95,6 +97,7 @@ namespace SimpleAlloc
             {
                 // Copy to accelerator
                 buffer.CopyFrom(
+                    accelerator.DefaultStream,
                     data,                                             // data source
                     new Index2(),                                     // source index in the scope of the data source
                     new Index2(32, 0),                                // target index in the scope of the buffer
@@ -102,6 +105,7 @@ namespace SimpleAlloc
 
                 // Copy from accelerator
                 buffer.CopyTo(
+                    accelerator.DefaultStream,
                     targetData,                                       // data target
                     new Index2(32, 0),                                // source index in the scope of the data source
                     new Index2(),                                     // target index in the scope of the buffer
@@ -141,6 +145,7 @@ namespace SimpleAlloc
             {
                 // Copy to accelerator
                 buffer.CopyFrom(
+                    accelerator.DefaultStream,
                     data,                                                               // data source
                     new Index3(),                                                       // source index in the scope of the data source
                     new Index3(32, 0, 0),                                               // target index in the scope of the buffer
@@ -148,6 +153,7 @@ namespace SimpleAlloc
 
                 // Copy from accelerator
                 buffer.CopyTo(
+                    accelerator.DefaultStream,
                     targetData,                                                         // data target
                     new Index3(32, 0, 0),                                               // target index in the scope of the buffer
                     new Index3(),                                                       // source index in the scope of the data source
@@ -180,18 +186,18 @@ namespace SimpleAlloc
             using (var buffer = accelerator.Allocate<int>(1))
             {
                 // Copy int(42) to the buffer at index 0.
-                buffer[0] = 42;
+                buffer.View[0] = 42;
                 // You can also use:
-                buffer.CopyFrom(42, 0);
+                buffer.CopyFrom(accelerator.DefaultStream, 42, 0);
 
                 // Read value of buffer at index 0.
-                Console.WriteLine("Resolved value: " + buffer[0]);
+                Console.WriteLine("Resolved value: " + buffer.View[0]);
 
                 // You can also use:
                 int bufferValue;
-                buffer.CopyTo(out bufferValue, 0);
+                buffer.CopyTo(accelerator.DefaultStream, out bufferValue, 0);
 
-                Console.WriteLine("Resolved value 2: " + buffer[0]);
+                Console.WriteLine("Resolved value 2: " + buffer.View[0]);
 
                 // Note that accessing data this way from the CPU is only possible on the buffer, but not on its views:
                 var view = buffer.View;

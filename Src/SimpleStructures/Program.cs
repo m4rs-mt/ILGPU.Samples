@@ -71,11 +71,11 @@ namespace SimpleStructures
                     using (var accelerator = Accelerator.Create(context, acceleratorId))
                     {
                         Console.WriteLine($"Performing operations on {accelerator}");
-                        var kernel = accelerator.LoadAutoGroupedStreamKernel<Index, ArrayView<CustomDataType>>(MyKernel);
+                        var kernel = accelerator.LoadAutoGroupedKernel<Index, ArrayView<CustomDataType>>(MyKernel);
                         using (var buffer = accelerator.Allocate<CustomDataType>(1024))
                         {
                             // Launch buffer.Length many threads and pass a view to buffer
-                            kernel(buffer.Length, buffer.View);
+                            kernel(accelerator.DefaultStream, buffer.Length, buffer.View);
 
                             // Wait for the kernel to finish...
                             accelerator.Synchronize();

@@ -43,9 +43,9 @@ namespace AdvancedAtomics
         /// <param name="compare">The expected comparison value.</param>
         /// <param name="value">The target value.</param>
         /// <returns>The old value.</returns>
-        public double CompareExchange(VariableView<double> target, double compare, double value)
+        public double CompareExchange(ref double target, double compare, double value)
         {
-            return Atomic.CompareExchange(target, compare, value);
+            return Atomic.CompareExchange(ref target, compare, value);
         }
     }
 
@@ -67,7 +67,7 @@ namespace AdvancedAtomics
         {
             // atomic add: dataView[0] += value;
             Atomic.MakeAtomic(
-                dataView.GetVariableView(0),
+                ref dataView.GetVariableView(0).Value,
                 value,
                 new AddDoubleOperation(),
                 new DoubleCompareExchangeOperation());
@@ -87,7 +87,7 @@ namespace AdvancedAtomics
         {
             // atomic add: dataView[0] += value;
             Atomic.MakeAtomic(
-                dataView.GetVariableView(0),
+                ref dataView.GetVariableView(0).Value,
                 value,
                 new AddDoubleOperation(),
                 new CompareExchangeDouble());
@@ -105,7 +105,7 @@ namespace AdvancedAtomics
             double value)
         {
             // atomic add: dataView[0] += value;
-            Atomic.Add(dataView.GetVariableView(0), value);
+            Atomic.Add(ref dataView.GetVariableView(0).Value, value);
         }
 
         static void LaunchKernel(
@@ -114,17 +114,17 @@ namespace AdvancedAtomics
         {
             Console.WriteLine("Launching: " + method.Method.Name);
 
-            var kernel = accelerator.LoadAutoGroupedStreamKernel(method);
+            var kernel = accelerator.LoadAutoGroupedKernel(method);
             using (var buffer = accelerator.Allocate<double>(1))
             {
                 buffer.MemSetToZero();
 
-                kernel(1024, buffer.View, 2.0);
+                kernel(accelerator.DefaultStream, 1024, buffer.View, 2.0);
 
                 // Wait for the kernel to finish...
                 accelerator.Synchronize();
 
-                var data = buffer.GetAsArray();
+                var data = buffer.GetAsArray(accelerator.DefaultStream);
                 for (int i = 0, e = data.Length; i < e; ++i)
                     Console.WriteLine($"Data[{i}] = {data[i]}");
             }

@@ -60,7 +60,7 @@ namespace DeviceInfo
                 // Accelerators can also be created manually with custom settings.
                 // The following code snippet creates a CPU accelerator with 4 threads
                 // and a warp size of 2 threads per warp and the highest thread priority.
-                using (var accelerator = new CPUAccelerator(context, 2, 2, ThreadPriority.Highest))
+                using (var accelerator = new CPUAccelerator(context, 4, ThreadPriority.Highest))
                 {
                     PrintAcceleratorInfo(accelerator);
                 }

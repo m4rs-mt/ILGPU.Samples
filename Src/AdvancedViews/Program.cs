@@ -64,7 +64,7 @@ namespace AdvancedViews
             {
                 var baseView = view.GetVariableView(0);
                 var counterView = baseView.GetSubView<int>(ComposedStructure.ElementCounterOffset);
-                Atomic.Add(counterView, 1);
+                Atomic.Add(ref counterView.Value, 1);
             }
         }
 
@@ -83,7 +83,7 @@ namespace AdvancedViews
                     using (var accelerator = Accelerator.Create(context, acceleratorId))
                     {
                         Console.WriteLine($"Performing operations on {accelerator}");
-                        var kernel = accelerator.LoadAutoGroupedStreamKernel<
+                        var kernel = accelerator.LoadAutoGroupedKernel<
                             Index, ArrayView<int>, ArrayView<ComposedStructure>, int>(MyKernel);
 
                         using (var elementsBuffer = accelerator.Allocate<int>(1024))
@@ -93,11 +93,11 @@ namespace AdvancedViews
                                 elementsBuffer.MemSetToZero();
                                 composedStructBuffer.MemSetToZero();
 
-                                kernel(elementsBuffer.Length, elementsBuffer.View, composedStructBuffer.View, 0);
+                                kernel(accelerator.DefaultStream, elementsBuffer.Length, elementsBuffer.View, composedStructBuffer.View, 0);
 
                                 accelerator.Synchronize();
 
-                                var composedResult = composedStructBuffer[0];
+                                var composedResult = composedStructBuffer.View[0];
                                 Console.WriteLine("Composed.SomeElement = " + composedResult.SomeElement);
                                 Console.WriteLine("Composed.SomeOtherElement = " + composedResult.SomeOtherElement);
                                 Console.WriteLine("Composed.ElementCounter = " + composedResult.ElementCounter);

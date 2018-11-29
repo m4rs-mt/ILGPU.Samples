@@ -316,6 +316,7 @@ namespace IndexImplementation
             {
                 // Copy to accelerator
                 buffer.CopyFrom(
+                    accelerator.DefaultStream,
                     data,                      // data source
                     0,                         // source index in the scope of the data source
                     new MyIndex4(2, 0, 0, 0),  // target index in the scope of the buffer
@@ -323,6 +324,7 @@ namespace IndexImplementation
 
                 // Copy from accelerator
                 buffer.CopyTo(
+                    accelerator.DefaultStream,
                     targetData,                // data target
                     new MyIndex4(2, 0, 0, 0),  // target index in the scope of the buffer
                     0,                         // target index in the scope of the data target
@@ -389,10 +391,10 @@ namespace IndexImplementation
                         AllocND(accelerator, (idx, dimension) => idx.ComputeLinearIndex(dimension));
                         AllocND(accelerator, (idx, dimension) => (long)idx.ComputeLinearIndex(dimension));
 
-                        var kernel = accelerator.LoadAutoGroupedStreamKernel<Index, ArrayView<int, MyIndex4>>(MyKernelND);
+                        var kernel = accelerator.LoadAutoGroupedKernel<Index, ArrayView<int, MyIndex4>>(MyKernelND);
                         using (var buffer = accelerator.Allocate<int, MyIndex4>(Dimension))
                         {
-                            kernel(Dimension.Size, buffer.View);
+                            kernel(accelerator.DefaultStream, Dimension.Size, buffer.View);
 
                             accelerator.Synchronize();
                         }

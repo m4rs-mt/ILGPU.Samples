@@ -171,7 +171,7 @@ namespace ExplicitlyGroupedKernels
                         using (var dataSource = accelerator.Allocate<int>(data.Length))
                         {
                             // Initialize data source
-                            dataSource.CopyFrom(data, 0, 0, data.Length);
+                            dataSource.CopyFrom(accelerator.DefaultStream, data, 0, 0, data.Length);
 
                             using (var dataTarget = accelerator.Allocate<int>(data.Length))
                             {
@@ -180,13 +180,13 @@ namespace ExplicitlyGroupedKernels
                                 {
                                     dataTarget.MemSetToZero();
 
-                                    var groupedKernel = accelerator.LoadStreamKernel<GroupedIndex, ArrayView<int>, int>(GroupedKernel);
-                                    groupedKernel(launchDimension, dataTarget.View, 64);
+                                    var groupedKernel = accelerator.LoadKernel<GroupedIndex, ArrayView<int>, int>(GroupedKernel);
+                                    groupedKernel(accelerator.DefaultStream, launchDimension, dataTarget.View, 64);
 
                                     accelerator.Synchronize();
 
                                     Console.WriteLine("Default grouped kernel");
-                                    var target = dataTarget.GetAsArray();
+                                    var target = dataTarget.GetAsArray(accelerator.DefaultStream);
                                     for (int i = 0, e = target.Length; i < e; ++i)
                                         Console.WriteLine($"Data[{i}] = {target[i]}");
                                 }
@@ -195,13 +195,13 @@ namespace ExplicitlyGroupedKernels
                                 {
                                     dataTarget.MemSetToZero();
 
-                                    var groupedKernel = accelerator.LoadStreamKernel<GroupedIndex, ArrayView<int>, ArrayView<int>, int>(GroupedKernelBarrier);
-                                    groupedKernel(launchDimension, dataSource, dataTarget.View, 64);
+                                    var groupedKernel = accelerator.LoadKernel<GroupedIndex, ArrayView<int>, ArrayView<int>, int>(GroupedKernelBarrier);
+                                    groupedKernel(accelerator.DefaultStream, launchDimension, dataSource, dataTarget.View, 64);
 
                                     accelerator.Synchronize();
 
                                     Console.WriteLine("Grouped-barrier kernel");
-                                    var target = dataTarget.GetAsArray();
+                                    var target = dataTarget.GetAsArray(accelerator.DefaultStream);
                                     for (int i = 0, e = target.Length; i < e; ++i)
                                         Console.WriteLine($"Data[{i}] = {target[i]}");
                                 }
@@ -210,13 +210,13 @@ namespace ExplicitlyGroupedKernels
                                 {
                                     dataTarget.MemSetToZero();
 
-                                    var groupedKernel = accelerator.LoadStreamKernel<GroupedIndex, ArrayView<int>, ArrayView<int>, int>(GroupedKernelAndBarrier);
-                                    groupedKernel(launchDimension, dataSource, dataTarget.View, 0);
+                                    var groupedKernel = accelerator.LoadKernel<GroupedIndex, ArrayView<int>, ArrayView<int>, int>(GroupedKernelAndBarrier);
+                                    groupedKernel(accelerator.DefaultStream, launchDimension, dataSource, dataTarget.View, 0);
 
                                     accelerator.Synchronize();
 
                                     Console.WriteLine("Grouped-and-barrier kernel");
-                                    var target = dataTarget.GetAsArray();
+                                    var target = dataTarget.GetAsArray(accelerator.DefaultStream);
                                     for (int i = 0, e = target.Length; i < e; ++i)
                                         Console.WriteLine($"Data[{i}] = {target[i]}");
                                 }
@@ -225,13 +225,13 @@ namespace ExplicitlyGroupedKernels
                                 {
                                     dataTarget.MemSetToZero();
 
-                                    var groupedKernel = accelerator.LoadStreamKernel<GroupedIndex, ArrayView<int>, ArrayView<int>, int>(GroupedKernelOrBarrier);
-                                    groupedKernel(launchDimension, dataSource, dataTarget.View, 64);
+                                    var groupedKernel = accelerator.LoadKernel<GroupedIndex, ArrayView<int>, ArrayView<int>, int>(GroupedKernelOrBarrier);
+                                    groupedKernel(accelerator.DefaultStream, launchDimension, dataSource, dataTarget.View, 64);
 
                                     accelerator.Synchronize();
 
                                     Console.WriteLine("Grouped-or-barrier kernel");
-                                    var target = dataTarget.GetAsArray();
+                                    var target = dataTarget.GetAsArray(accelerator.DefaultStream);
                                     for (int i = 0, e = target.Length; i < e; ++i)
                                         Console.WriteLine($"Data[{i}] = {target[i]}");
                                 }
@@ -240,13 +240,13 @@ namespace ExplicitlyGroupedKernels
                                 {
                                     dataTarget.MemSetToZero();
 
-                                    var groupedKernel = accelerator.LoadStreamKernel<GroupedIndex, ArrayView<int>, ArrayView<int>, int>(GroupedKernelPopCountBarrier);
-                                    groupedKernel(launchDimension, dataSource, dataTarget.View, 0);
+                                    var groupedKernel = accelerator.LoadKernel<GroupedIndex, ArrayView<int>, ArrayView<int>, int>(GroupedKernelPopCountBarrier);
+                                    groupedKernel(accelerator.DefaultStream, launchDimension, dataSource, dataTarget.View, 0);
 
                                     accelerator.Synchronize();
 
                                     Console.WriteLine("Grouped-popcount-barrier kernel");
-                                    var target = dataTarget.GetAsArray();
+                                    var target = dataTarget.GetAsArray(accelerator.DefaultStream);
                                     for (int i = 0, e = target.Length; i < e; ++i)
                                         Console.WriteLine($"Data[{i}] = {target[i]}");
                                 }

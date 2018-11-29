@@ -76,45 +76,44 @@ namespace LowLevelKernelCompilation
         static void CompileAndLaunchKernel(Accelerator accelerator, int groupSize)
         {
             // Create a backend for this device
-            using (var backend = accelerator.CreateBackend())
+            var backend = accelerator.Backend;
+
+            // Create a new compile unit using the created backend
+            using (var compileUnit = accelerator.Context.BeginCodeGeneration())
             {
-                // Create a new compile unit using the created backend
-                using (var compileUnit = accelerator.Context.CreateCompileUnit(backend))
+                // Resolve and compile method into a kernel
+                var method = typeof(Program).GetMethod(nameof(GroupedKernel), BindingFlags.NonPublic | BindingFlags.Static);
+                var compiledKernel = backend.Compile(method, KernelSpecialization.Empty);
+                // Info: use compiledKernel.GetBuffer() to retrieve the compiled kernel program data
+
+                // -------------------------------------------------------------------------------
+                // Load the explicitly grouped kernel
+                // Note that the kernel has to be disposed manually.
+                var kernel = accelerator.LoadKernel(compiledKernel);
+                var launcher = kernel.CreateLauncherDelegate<Action<GroupedIndex, ArrayView<int>, int>>();
+                // -------------------------------------------------------------------------------
+
+                using (var buffer = accelerator.Allocate<int>(1024))
                 {
-                    // Resolve and compile method into a kernel
-                    var method = typeof(Program).GetMethod(nameof(GroupedKernel), BindingFlags.NonPublic | BindingFlags.Static);
-                    var compiledKernel = backend.Compile(compileUnit, method);
-                    // Info: use compiledKernel.GetBuffer() to retrieve the compiled kernel program data
+                    // You can also use kernel.Launch; however, the generic launch method involves boxing.
+                    launcher(
+                        new GroupedIndex(
+                            (buffer.Length + groupSize - 1) / groupSize, // Compute the number of groups (round up)
+                            groupSize),                                        // Use the given group size
+                        buffer.View,
+                        42);
 
-                    // -------------------------------------------------------------------------------
-                    // Load the explicitly grouped kernel
-                    // Note that the kernel has to be disposed manually.
-                    var kernel = accelerator.LoadKernel(compiledKernel);
-                    var launcher = kernel.CreateStreamLauncherDelegate<Action<GroupedIndex, ArrayView<int>, int>>();
-                    // -------------------------------------------------------------------------------
+                    accelerator.Synchronize();
 
-                    using (var buffer = accelerator.Allocate<int>(1024))
-                    {
-                        // You can also use kernel.Launch; however, the generic launch method involves boxing.
-                        launcher(
-                            new GroupedIndex(
-                                (buffer.Length + groupSize - 1) / groupSize, // Compute the number of groups (round up)
-                                groupSize),                                        // Use the given group size
-                            buffer.View,
-                            42);
-
-                        accelerator.Synchronize();
-
-                            // Resolve and verify data
-                            var data = buffer.GetAsArray();
-                            for (int i = 0, e = data.Length; i < e; ++i)
-                            {
-                                if (data[i] != 42 + i)
-                                    Console.WriteLine($"Error at element location {i}: {data[i]} found");
-                            }
-                    }
-                    kernel.Dispose();
+                        // Resolve and verify data
+                        var data = buffer.GetAsArray(accelerator.DefaultStream);
+                        for (int i = 0, e = data.Length; i < e; ++i)
+                        {
+                            if (data[i] != 42 + i)
+                                Console.WriteLine($"Error at element location {i}: {data[i]} found");
+                        }
                 }
+                kernel.Dispose();
             }
         }
 
@@ -124,45 +123,44 @@ namespace LowLevelKernelCompilation
         static void CompileAndLaunchImplicitlyGroupedKernel(Accelerator accelerator, int groupSize)
         {
             // Create a backend for this device
-            using (var backend = accelerator.CreateBackend())
+            var backend = accelerator.Backend;
+
+            // Create a new compile unit using the created backend
+            using (var compileUnit = accelerator.Context.BeginCodeGeneration())
             {
-                // Create a new compile unit using the created backend
-                using (var compileUnit = accelerator.Context.CreateCompileUnit(backend))
+                // Resolve and compile method into a kernel
+                var method = typeof(Program).GetMethod(nameof(MyKernel), BindingFlags.NonPublic | BindingFlags.Static);
+                var compiledKernel = backend.Compile(method, KernelSpecialization.Empty);
+                // Info: use compiledKernel.GetBuffer() to retrieve the compiled kernel program data
+
+                // -------------------------------------------------------------------------------
+                // Load the implicitly grouped kernel with the custom group size
+                // Note that the kernel has to be disposed manually.
+                var kernel = accelerator.LoadImplicitlyGroupedKernel(compiledKernel, groupSize);
+                var launcher = kernel.CreateLauncherDelegate<Action<Index, ArrayView<int>, int>>();
+                // -------------------------------------------------------------------------------
+
+                using (var buffer = accelerator.Allocate<int>(1024))
                 {
-                    // Resolve and compile method into a kernel
-                    var method = typeof(Program).GetMethod(nameof(MyKernel), BindingFlags.NonPublic | BindingFlags.Static);
-                    var compiledKernel = backend.Compile(compileUnit, method);
-                    // Info: use compiledKernel.GetBuffer() to retrieve the compiled kernel program data
+                    // Launch buffer.Length many threads and pass a view to buffer.
+                    // You can also use kernel.Launch; however, the generic launch method involves boxing.
+                    launcher(buffer.Length, buffer.View, 42);
 
-                    // -------------------------------------------------------------------------------
-                    // Load the implicitly grouped kernel with the custom group size
-                    // Note that the kernel has to be disposed manually.
-                    var kernel = accelerator.LoadImplicitlyGroupedKernel(compiledKernel, groupSize);
-                    var launcher = kernel.CreateStreamLauncherDelegate<Action<Index, ArrayView<int>, int>>();
-                    // -------------------------------------------------------------------------------
-
-                    using (var buffer = accelerator.Allocate<int>(1024))
-                    {
-                        // Launch buffer.Length many threads and pass a view to buffer.
-                        // You can also use kernel.Launch; however, the generic launch method involves boxing.
-                        launcher(buffer.Length, buffer.View, 42);
-
-                        // Wait for the kernel to finish...
-                        accelerator.Synchronize();
-
-                        // Resolve and verify data
-                        var data = buffer.GetAsArray();
-                        for (int i = 0, e = data.Length; i < e; ++i)
-                        {
-                            if (data[i] != 42 + i)
-                                Console.WriteLine($"Error at element location {i}: {data[i]} found");
-                        }
-                    }
-
+                    // Wait for the kernel to finish...
                     accelerator.Synchronize();
 
-                    kernel.Dispose();
+                    // Resolve and verify data
+                    var data = buffer.GetAsArray(accelerator.DefaultStream);
+                    for (int i = 0, e = data.Length; i < e; ++i)
+                    {
+                        if (data[i] != 42 + i)
+                            Console.WriteLine($"Error at element location {i}: {data[i]} found");
+                    }
                 }
+
+                accelerator.Synchronize();
+
+                kernel.Dispose();
             }
         }
 
@@ -172,45 +170,41 @@ namespace LowLevelKernelCompilation
         static void CompileAndLaunchAutoGroupedKernel(Accelerator accelerator)
         {
             // Create a backend for this device
-            using (var backend = accelerator.CreateBackend())
+            var backend = accelerator.Backend;
             {
-                // Create a new compile unit using the created backend
-                using (var compileUnit = accelerator.Context.CreateCompileUnit(backend))
+                // Resolve and compile method into a kernel
+                var method = typeof(Program).GetMethod(nameof(MyKernel), BindingFlags.NonPublic | BindingFlags.Static);
+                var compiledKernel = backend.Compile(method, KernelSpecialization.Empty);
+                // Info: use compiledKernel.GetBuffer() to retrieve the compiled kernel program data
+
+                // -------------------------------------------------------------------------------
+                // Load the implicitly grouped kernel with an automatically determined group size.
+                // Note that the kernel has to be disposed manually.
+                var kernel = accelerator.LoadAutoGroupedKernel(compiledKernel);
+                var launcher = kernel.CreateLauncherDelegate<Action<Index, ArrayView<int>, int>>();
+                // -------------------------------------------------------------------------------
+
+                using (var buffer = accelerator.Allocate<int>(1024))
                 {
-                    // Resolve and compile method into a kernel
-                    var method = typeof(Program).GetMethod(nameof(MyKernel), BindingFlags.NonPublic | BindingFlags.Static);
-                    var compiledKernel = backend.Compile(compileUnit, method);
-                    // Info: use compiledKernel.GetBuffer() to retrieve the compiled kernel program data
+                    // Launch buffer.Length many threads and pass a view to buffer.
+                    // You can also use kernel.Launch; however, the generic launch method involves boxing.
+                    launcher(buffer.Length, buffer.View, 42);
 
-                    // -------------------------------------------------------------------------------
-                    // Load the implicitly grouped kernel with an automatically determined group size.
-                    // Note that the kernel has to be disposed manually.
-                    var kernel = accelerator.LoadAutoGroupedKernel(compiledKernel);
-                    var launcher = kernel.CreateStreamLauncherDelegate<Action<Index, ArrayView<int>, int>>();
-                    // -------------------------------------------------------------------------------
-
-                    using (var buffer = accelerator.Allocate<int>(1024))
-                    {
-                        // Launch buffer.Length many threads and pass a view to buffer.
-                        // You can also use kernel.Launch; however, the generic launch method involves boxing.
-                        launcher(buffer.Length, buffer.View, 42);
-
-                        // Wait for the kernel to finish...
-                        accelerator.Synchronize();
-
-                        // Resolve and verify data
-                        var data = buffer.GetAsArray();
-                        for (int i = 0, e = data.Length; i < e; ++i)
-                        {
-                            if (data[i] != 42 + i)
-                                Console.WriteLine($"Error at element location {i}: {data[i]} found");
-                        }
-                    }
-
+                    // Wait for the kernel to finish...
                     accelerator.Synchronize();
 
-                    kernel.Dispose();
+                    // Resolve and verify data
+                    var data = buffer.GetAsArray(accelerator.DefaultStream);
+                    for (int i = 0, e = data.Length; i < e; ++i)
+                    {
+                        if (data[i] != 42 + i)
+                            Console.WriteLine($"Error at element location {i}: {data[i]} found");
+                    }
                 }
+
+                accelerator.Synchronize();
+
+                kernel.Dispose();
             }
         }
 

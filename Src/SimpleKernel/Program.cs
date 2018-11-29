@@ -64,20 +64,20 @@ namespace SimpleKernel
                         // parameter. In this case the corresponding call will look like this:
                         // var kernel = accelerator.LoadautoGroupedKernel<Index, ArrayView<int>, int>(MyKernel);
                         // For more detail refer to the ImplicitlyGroupedKernels or ExplicitlyGroupedKernels sample.
-                        var kernel = accelerator.LoadAutoGroupedStreamKernel<
+                        var kernel = accelerator.LoadAutoGroupedKernel<
                             Index, ArrayView<int>, int>(MyKernel);
 
                         using (var buffer = accelerator.Allocate<int>(1024))
                         {
                             // Launch buffer.Length many threads and pass a view to buffer
                             // Note that the kernel launch does not involve any boxing
-                            kernel(buffer.Length, buffer.View, 42);
+                            kernel(accelerator.DefaultStream, buffer.Length, buffer.View, 42);
 
                             // Wait for the kernel to finish...
                             accelerator.Synchronize();
 
                             // Resolve and verify data
-                            var data = buffer.GetAsArray();
+                            var data = buffer.GetAsArray(accelerator.DefaultStream);
                             for (int i = 0, e = data.Length; i < e; ++i)
                             {
                                 if (data[i] != 42 + i)
