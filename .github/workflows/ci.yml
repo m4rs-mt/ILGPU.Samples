@@ -1,0 +1,102 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  schedule:
+    # Run daily at 00:00 so we get notified if CI is broken before a pull request
+    # is submitted.
+    - cron:  '0 0 * * *'
+
+env:
+  DOTNET_NOLOGO: true
+
+jobs:
+
+  # Setup the OS matrix so that CUDA tests do not run on forks, as it needs self-hosted runners.
+  # Skip running on macOS in most cases.
+  setup-os-matrix:
+    # Do not run this job for pull requests where both branches are from the same repo.
+    # Jobs that depend on this one will be skipped too.
+    # This prevents duplicate CI runs for our own pull requests, whilst preserving the ability to
+    # run the CI for each branch push to a fork, and for each pull request originating from a fork.
+    if: github.event_name == 'schedule' || github.event_name == 'push' || github.event.pull_request.head.repo.id != github.event.pull_request.base.repo.id
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup OS matrix
+        id: setup-os-matrix
+        run: |
+          os=("ubuntu-latest" "windows-latest")
+
+          # runs on macOS only if there is a push to master, or a tag is 
+          # pushed, we do this since macOS builds last too long and ILGPU 
+          # is rarely used on a macOS
+          (
+            [ "${{ github.event_name }}" == "schedule" ] ||
+            (
+              [ "${{ github.event_name }}" == "push" ] &&
+              (
+                [ "${{ github.ref }}" == "refs/heads/master" ] ||
+                [[ "${{ github.ref }}" =~ "refs/tags/v" ]]  
+              )
+            )
+          ) && os+=("macos-latest")
+
+          [ "${{ github.event.repository.fork }}" == "false" ] && os+=("cuda")
+
+          echo "::set-output name=os::$(jq -cn '$ARGS.positional' --args ${os[@]})"
+    outputs:
+      os: ${{ steps.setup-os-matrix.outputs.os }}
+
+  # Check that building the entire solution for all target frameworks works.
+  build:
+    # Do not run this job for pull requests where both branches are from the same repo.
+    # Jobs that depend on this one will be skipped too.
+    # This prevents duplicate CI runs for our own pull requests, whilst preserving the ability to
+    # run the CI for each branch push to a fork, and for each pull request originating from a fork.
+    if: github.event_name == 'schedule' || github.event_name == 'push' || github.event.pull_request.head.repo.id != github.event.pull_request.base.repo.id
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup the latest .NET 5 SDK
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 5.0.x
+
+      - name: Build
+        run: dotnet build --configuration=Release -p:TreatWarningsAsErrors=true Src
+
+  # Run tests for all supported combinations of OS/library/framework.
+  test:
+    needs: setup-os-matrix
+    strategy:
+      matrix:
+        os: ${{ fromJson(needs.setup-os-matrix.outputs.os) }}
+        framework: [netcoreapp2.1, netcoreapp3.1, net5.0]
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Setup the latest .NET 5 SDK
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 5.0.x
+      
+      - name: Setup the latest .NET Core 3.1 SDK
+        if: matrix.framework == 'netcoreapp3.1'
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 3.1.x
+
+      - name: Setup the latest .NET Core 2.1 SDK
+        if: matrix.framework == 'netcoreapp2.1'
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 2.1.x
+
+      - name: Build and test
+        run: dotnet test --configuration=Release --framework=${{ matrix.framework }} -p:TreatWarningsAsErrors=true Src
