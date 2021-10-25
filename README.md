@@ -1,4 +1,9 @@
-# ILGPU Programming Examples
+# ILGPU Programming Examples (! MOVED !)
+
+Please note that the ILGPU.Samples sample collection has been merged with the ILGPU repository.
+Refer to the ILGPU repository (https://github.com/m4rs-mt/ILGPU) for updates and new releases.
+
+# ILGPU Programming Examples (pre 1.0 Version)
 
 The sample projects demonstrate the basic usage of ILGPU  to help you get started with 
 high performance GPU programming.
